@@ -1,4 +1,6 @@
-## Refiner: Restructure Retrieved Content Efficiently to Advance Question-Answering Capabilities
+## Refiner: Restructure Retrieved Content Efficiently to Advance Question-Answering Capabilities (Opensource Ongoing)
+
+[[paper]](https://arxiv.org/abs/2406.11357) [[model]](https://huggingface.co/al1231/Refiner-7B)
 
 ## TL;DR
 _Refiner_ is an end-to-end extract-and-restructure paradigm that incorporates query-relevant contents, contexts, and sectionalizes interconnected information, ensuring information distinction and alignment with the original context. Refiner achieves a 80.5% tokens reduction and a 1.6-7.0% improvement margin in
