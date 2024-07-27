@@ -3,9 +3,7 @@ import pylcs
 import pandas as pd
 from tqdm.auto import tqdm
 from utils import regex_section
-from submit_get_refiner_teacher_data import downstream_inference_name
-
-tqdm.pandas(desc="Applying")
+from submit_get_refiner_teacher_data import TASKS, downstream_inference_name
 
 
 def common_str_idx(s1: str, s2: str):
@@ -201,16 +199,26 @@ def generate_exemplar(df, teacher_names):
             continue
 
         lst_exemplar.append(f"{context['section']} {context['title']}\n{context['quote']}")
-    
+
+        del context["ballot"]
+        if "voters" in context:
+            del context["voters"]
+            del context["quote"]
+        if "section_ballot" in context:
+            del context["section_ballot"]
+
     return '\n'.join(lst_exemplar)
 
 
-df_arc_c: pd.DataFrame = pd.read_json("train_data/arc_c_train_teacher_models.jsonl", lines=True)
-df_hotpotqa = pd.read_json("train_data/hotpotqa_train_teacher_models.jsonl", lines=True)
+if __name__ == '__main__':
+    tqdm.pandas(desc="Applying")
 
+    for task in TASKS:
+        df_train_data: pd.DataFrame = pd.read_json(f"train_data/{task}_teacher_models.jsonl", lines=True)
 
-downstream_inference_name = ("Llama_3_8b", "Mixtral_8x7B", "Llama_2_70b", "Llama_3_70b", "Qwen2_72B")
+        df_train_data["exemplar"] = df_train_data.progress_apply(generate_exemplar, args=(downstream_inference_name,), axis=1)
+        # remove dirty exemplars
+        df_train_data = df_train_data[~df_train_data["exemplar"].isna()]
 
-df_arc_c["exemplar"] = df_arc_c.progress_apply(generate_exemplar, args=(downstream_inference_name,), axis=1)
-df_arc_c["exemplar"][df_arc_c["exemplar"].isna()]
-df_arc_c["exemplar"][~df_arc_c["exemplar"].isna() & (df_arc_c["exemplar"].str.len() == 0)]
+        df_train_data.to_json(f"train_data/{task}_teacher_models.jsonl", lines=True, orient="records")
+        # df_train_data["exemplar"][~df_train_data["exemplar"].isna() & (df_train_data["exemplar"].str.len() == 0)]
