@@ -97,7 +97,7 @@ def batch_evaluate(model, tokenizer, lst_batch):
                 return_dict_in_generate=True,
                 use_cache=True)
 
-    if isinstance(model, AutoModelForCausalLM):
+    if isinstance(model, (AutoModelForCausalLM, PeftModel)):
         start_idx = inputs.input_ids.shape[1]
     else:
         start_idx = 0
@@ -115,6 +115,8 @@ if __name__ == '__main__':
     kwargs = InitProcessGroupKwargs(timeout=dt.timedelta(seconds=21600))
     accelerator = Accelerator(kwargs_handlers=[kwargs])
     accelerator.print("Task:", args.task)
+    if os.path.exists(args.adapter_path):
+        args.adapter_path = os.path.abspath(args.adapter_path)
     accelerator.print("Adapter:", args.adapter_path)
 
     # slurm.init_distributed_mode(args)
@@ -134,20 +136,25 @@ if __name__ == '__main__':
     if isinstance(tokenizer, (T5TokenizerFast, T5Tokenizer)):
         model = AutoModelForSeq2SeqLM.from_pretrained(
             args.base_model_name_or_path,
-            # torch_dtype=torch.float16
+            torch_dtype=torch.float16
         )
     else:
         model = AutoModelForCausalLM.from_pretrained(
             args.base_model_name_or_path,
-            attn_implementation="flash_attention_2" if args.use_flash_attn else "eager" # "sdpa",
-            # torch_dtype=torch.float16
+            attn_implementation="sdpa" if args.use_flash_attn else "eager",
+            torch_dtype=torch.float16
         )
     embedding_size = model.get_input_embeddings().weight.shape[0]
     if len(tokenizer) > embedding_size:
         model.resize_token_embeddings(len(tokenizer))
 
     if args.adapter_path is not None:
-        model = PeftModel.from_pretrained(model, args.adapter_path, is_trainable=False)
+        model = PeftModel.from_pretrained(
+            model,
+            args.adapter_path,
+            is_trainable=False,
+            torch_dtype=torch.float16
+        )
 
     model = accelerator.prepare(model)
     gen_kwargs = dict(tokenizer=tokenizer)
