@@ -7,12 +7,16 @@ from submit_get_refiner_teacher_data import TASKS, downstream_inference_name
 
 
 def common_str_idx(s1: str, s2: str):
-    # find longest common substring and return corresponding index
+    """
+    Find longest common substring and return the corresponding index in s1
+    """
     return pylcs.lcs_string_idx(s1, s2)
 
 
 def parse_quotes(teacher_answer: str):
-    # parse quotes from a single teacher's answer
+    """
+    Parse quotes from a single teacher's answer
+    """
     lst_teacher_quotes = teacher_answer.split('\n\n')
     if re.match(regex_section, lst_teacher_quotes[-1]) is None:
         teacher_answer = '\n\n'.join(lst_teacher_quotes[:-1])
@@ -28,12 +32,13 @@ def parse_quotes(teacher_answer: str):
 
 
 def vote_quotes(lst_context: list, lst_quotes: list, voter_name: str, min_valid_str_len=3):
-    # record quote poll with the following steps:
-    # 1. retrieve verbatim quotes and sections parsed from a teacher answer
-    # 2. calculate poll for each quote by accumulating the occurrence of quotes under word level
-    # 3. the name of voter (a.k.a, name of teacher model) will be also recorded along with
-    #    the section with respective to the quote, this is for serving reassigning section afterward
-    
+    """
+    Construct quote poll with the following steps:
+    1. retrieve verbatim quotes and sections parsed from a teacher answer
+    2. calculate poll for each quote by accumulating the occurrence of quotes under word level
+    3. the name of voter (a.k.a, name of teacher model) will be also recorded along with
+       the section with respective to the quote, this is for serving reassigning section afterward
+    """
     # quick exit on empty quotes
     if len(lst_quotes) == 0 or isinstance(lst_quotes[0], str) and len(lst_quotes[0]) == 0:
         return
@@ -69,8 +74,11 @@ def vote_quotes(lst_context: list, lst_quotes: list, voter_name: str, min_valid_
 
 
 def extract_major_quote(text, ballots, min_context_votes, return_voters=False):
-    # sort ballot on index,
-    # so we can iterate through it and find the majority voted text from context
+    """
+    Find and extract verbatim quotes that are voted by a majority of voters
+    """
+    # sort ballot on index of context words,
+    # so we can iterate through it and extract the majority voted text
     ballots = dict(sorted(ballots.items()))
 
     i_context_start, i_context_end, max_voters = -1, -1, None
@@ -98,6 +106,9 @@ def extract_major_quote(text, ballots, min_context_votes, return_voters=False):
 
 
 def reassign_section(d_contexts: list, min_section_votes: int):
+    """
+    Assign sections based on combinations of quotes voted by teacher models
+    """
     for context in d_contexts:
         # skip unselected contexts
         if "voters" not in context:
@@ -150,8 +161,9 @@ def reassign_section(d_contexts: list, min_section_votes: int):
 
 
 def generate_exemplar(df, teacher_names):
-    # generate Refiner's exemplar output
-
+    """
+    generate Refiner's exemplar output
+    """
     n_teachers = len(teacher_names)
     # the number of majority votes
     n_majority = (n_teachers + 1) // 2
