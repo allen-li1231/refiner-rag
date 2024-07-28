@@ -62,8 +62,8 @@ def vote_quotes(lst_context: list, lst_quotes: list, voter_name: str, min_valid_
 
             for i, idx in enumerate(lst_common_idx):
                 if idx == -1:
-                    # idx=1 means the word in the original context respective to the index
-                    # does not occur in the parsed quote
+                    # idx=1 means the respective word in the original context
+                    # does not present in the parsed quotes
                     continue
 
                 # record name of voter along with the designated section number
