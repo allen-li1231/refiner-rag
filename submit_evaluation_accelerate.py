@@ -49,12 +49,6 @@ def parse_args():
         "--top_n", type=int, default=10, help="name to directory containing evaluate data"
     )
     parser.add_argument(
-        "--eval_baseline", action="store_true", help="whether to evaluate baseline"
-    )
-    parser.add_argument(
-        "--eval_ablation", action="store_true", help="whether to evaluate ablation"
-    )
-    parser.add_argument(
         "--eval_refiner", action="store_true", help="whether to evaluate Refiner"
     )
     parser.add_argument(
