@@ -3,8 +3,7 @@
 [[paper]](https://arxiv.org/abs/2406.11357) [[model]](https://huggingface.co/al1231/Refiner-7B)
 
 ## TL;DR
-_Refiner_ is an end-to-end extract-and-restructure paradigm that incorporates query-relevant contents, contexts, and sectionalizes interconnected information, ensuring information distinction and alignment with the original context. Refiner achieves a 80.5% tokens reduction and a 1.6-7.0% improvement margin in
-multi-hop tasks, rivaling with next best solution, [LongLLMLingua](https://arxiv.org/abs/2310.06839).
+_Refiner_ is an end-to-end extract-and-restructure paradigm that incorporates query-relevant contents, contexts, and sectionalizes interconnected information, ensuring information distinction and alignment with the original context. Refiner achieves a 80.5% tokens reduction and a 1.6-7.0% improvement margin in multi-hop tasks, rivaling with next best solution, [LongLLMLingua](https://arxiv.org/abs/2310.06839).
 
 ## How Refiner Works
 Refiner integrates seamlessly with RAG systems, leveraging a single decoder-only LLM to:
@@ -14,7 +13,7 @@ Refiner integrates seamlessly with RAG systems, leveraging a single decoder-only
 
 ## Benefits
 * **Improved answer accuracy**: Significant gain in downstream LLM performance.
-* **Efficient compression**: Up to 80%+ token reduction.
+* **Efficient compression**: 80%+ token reduction.
 
 
 ## Get Started
@@ -58,19 +57,82 @@ pred_text = tokenizer.batch_decode(pred_token_ids)
 print(pred_text)
 ```
 
-To reproduce paper experiment, first revise the GPU number in your environment in ```submit_evaluation_accelerate.py```
+### Retrieval Setup
+Following all retrieval settings with [Self-RAG](https://github.com/AkariAsai/self-rag) by default, we use [Contriever](https://github.com/facebookresearch/contriever) as our retrieval component.
+To skip the retrieval steps for a easier reproduction, feel free to download our [training set](https://drive.google.com/file/d/1WngJN2tHf3Ts8oT4sIXhFYQvWRH7QK77/view?usp=sharing) and [evaluation set](https://drive.google.com/file/d/1UA3Vp_8VH0uCQu_e6UgGuCbK9znniutF/view?usp=sharing). After download, create directory and unzip them into `train_data/` and `eval_data/`, respectively.
+
+### Download data
+Download preprocessed passage data used in DPR.
+```
+mkdir wikipedia_embeddings && cd wikipedia_embeddings
+wget https://dl.fbaipublicfiles.com/dpr/wikipedia_split/psgs_w100.tsv.gz
+```
+
+Then, download the generated passages. We use [Contriever-MSMARCO](https://huggingface.co/facebook/contriever-msmarco)
+```
+wget https://dl.fbaipublicfiles.com/contriever/embeddings/contriever-msmarco/wikipedia_embeddings.tar
+```
+
+### Run retriever
+You can run passage retrieval by running the command below.
+
+```
+python passage_retrieval.py \
+    --model_name_or_path facebook/contriever-msmarco 
+    --passages ""wikipedia_embeddings/psgs_w100.tsv" \
+    --passages_embeddings "wikipedia_embeddings/*" \
+    --data YOUR_INPUT_FILE  \
+    --output_dir YOUR_OUTPUT_FILE \
+    --n_docs 10
+```
+Your input file should be either a `json` or `jsonl`. Each instance must contain either `question` or `instruction`, which will be used as a query during retrieval.
+
+### Generate embeddings for your own data
+
+You can generate embeddings for your own data by running the following command. (The script is adapted from the Contriever repository.) Note that generating embeddings from a large-scale corpus (>10M docs) can take time, and we recommend running it on multiple GPUs.
+
+```
+for i in {0..3}; do
+  export CUDA_VISIBLE_DEVICES=${i}
+  python generate_passage_embeddings.py  --model_name_or_path facebook/contriever-msmarco \
+  --output_dir YOUR_OUTPUT_DIR \
+  --passages YOUR_PASSAGE_DATA --shard_id ${i}  --num_shards 4 > ./log/nohup.my_embeddings.${i} 2>&1 &
+```
+
+## Training Dataset
+The construction of training dataset can be condensed into three steps:
+* Document retrieval on datasets that don't automatically come with content candidates. For retrieval setup, please refer to [this section](#Retrieval-Setup).
+* Teacher models inference on the QA-document datasets.
+* Consolidate curated exemplar answer from teachers' answers.
+
+The first step can be skipped through directly downloading [training sets](https://drive.google.com/file/d/1WngJN2tHf3Ts8oT4sIXhFYQvWRH7QK77/view?usp=sharing). After download, create directory and unzip them into `train_data/`.
+
+### Teachers Model Inference
+Teacher models can be replaced through revising variables `downstream_model_names` and `downstream_inference_name` in `submit_get_refiner_teacher_data.py`.
+Run inference with:
+```shell
+python ./submit_get_refiner_teacher_data.py --top_n 10
+```
+The script will create a task-specific file suffixed with `_teacher_models.jsonl` in `train_data/`. Once created, different teacher models' answers will be appended into this same file.
+
+### Multi-Teacher Knowledge Distillation
+
+
+
+## Reproduction on Paper Experiments
+To reproduce experiments in our paper, first revise the GPU number in your environment in ```submit_evaluation_accelerate.py```
 Then in the root directory, run the following code to evaluate _Refiner_:
 ```sh
-python ./submit_evaluation_accelerate.py --adapter_name refiner --top_n 10 --eval_refiner
+python ./submit_evaluation_accelerate.py --adapter_name al1231/Refiner-7B --top_n 10 --eval_refiner
 ```
 
 Then you can run the following code to evaluate downstream language models:
 ```sh
-python ./submit_evaluation_accelerate.py --adapter_name refiner --top_n 10 --eval_downstream
+python ./submit_evaluation_accelerate.py --adapter_name al1231/Refiner-7B --top_n 10 --eval_downstream
 ```
 To evaluate GPT 3.5 Turbo under our default retriever setting, first provide your OpenAI token in ```get_executor_data.py```, line 15, then run:
 ```sh
-python ./submit_evaluation_accelerate.py --adapter_name refiner --use_openai --top_n 10 --eval_baseline
+python ./submit_evaluation_accelerate.py --adapter_name al1231/Refiner-7B --use_openai --top_n 10 --eval_baseline
 ```
 For RECOMP Abstractive Compressor:
 ```sh
@@ -81,6 +143,7 @@ For LongLLMLingua:
 ```sh
 python ./submit_evaluation_longllmlingua.py --top_n 10 --inference_name longllmlingua --eval_executor --rate 0.5 --dynamic_context_compression_ratio 0.3 --output_dir "../eval_data/longllmlingua/top_10/"
 ```
+
 
 ## Citation
 ```cite
