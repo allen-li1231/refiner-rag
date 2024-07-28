@@ -470,8 +470,8 @@ def process_retriever_passage(data,
                    ).sort_index(level=1, ascending=False)
     
     srs_passages = srs_passages.iloc[:n_docs]
-    if sort:
-        srs_passages = srs_passages.sample(n_docs)
+    if not sort:
+        srs_passages = srs_passages.sample(frac=1.)
     return prompt, "\n---\n".join(srs_passages)
 
 
