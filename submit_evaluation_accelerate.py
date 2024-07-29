@@ -83,19 +83,19 @@ accelerate launch \
 ./evaluation_accelerate.py \
     --per_gpu_eval_batch_size {BATCH_SIZE_PER_GPU} \
     --base_model_name_or_path {BASE_MODEL_NAME_OR_PATH} \
-    --adapter_path ./checkpoint/{adapter} \
-    --output_dir ./eval_data/{adapter}/top_{top_n} \
+    --adapter_path {adapter} \
+    --output_dir ./eval_data/{adapter.rsplit('/')[-1]}/top_{top_n} \
     --task {task} \
     --top_n {top_n} \
     --inference_name {inference_name}
     """)
         print(f'Complete Time: {time.time() - start}')
 
-    if eval_dir is None and "refiner" in adapter:
-        eval_dir = f"./eval_data/top_{top_n}"
-    if eval_dir is None:
-        raise LookupError("Please specify eval data directory by --eval_dir")
-
+    if eval_dir is None and "refiner" in adapter.lower():
+        eval_dir = f"./eval_data/{adapter.rsplit('/')[-1]}/top_{top_n}"
+    if eval_downstream and eval_dir is None:
+        raise LookupError("Please provide eval data directory with --eval_dir")
+    
     for file_name in os.listdir(eval_dir):
         if file_name.startswith(f"{task}_{inference_name}"):
             file_path = os.path.abspath(os.path.join(eval_dir, file_name))
@@ -109,12 +109,12 @@ accelerate launch \
                 if eval_downstream:
                     os.system(f"""
 python ./get_executor_data.py \
---model_name_or_path {model} \
---per_gpu_eval_batch_size 12777 \
---task {task} \
---inference_name downstream_{inference} \
---context_key {inference_name} \
---input "{file_path}"
+    --model_name_or_path {model} \
+    --per_gpu_eval_batch_size 12777 \
+    --task {task} \
+    --inference_name downstream_{inference} \
+    --context_key {inference_name} \
+    --input "{file_path}"
 """)
             return
 
