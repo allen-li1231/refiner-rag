@@ -117,6 +117,19 @@ The script will create a task-specific file suffixed with `_teacher_models.jsonl
 
 ### Multi-Teacher Knowledge Distillation
 
+For each query-documents input, five teacher models by default are prompted to generate sectioned query-relevant quotes. The following steps are undertaken to create one exemplar answer from teacher models' outputs:
+
+**1. Disassemble Teacher Answers**: The outputs from the teacher models are parsed to extract sections, titles, and quotes using regular expressions. Each quote is considered a single vote from the respective teacher model, indicating that the quote is deemed relevant to the query. We create a temporary set to collect these votes.
+
+**2. Quote Voting and Subsection Reassignment**
+The set of parsed quotes are then subject to the following processes:
+* **Character-Level Voting**: We count the occurrence of each character in the longest common substring between original document and the quote, each teacher model will have exactly one vote for each character.
+* **Count Valid Votes on Quotes**: We record votes from each teacher model only if quotes they produce are substrings to the corresponding documents, and that they contain word character. Substrings voted by a majority of teacher model (i.e., at least half of the total teacher models) will be preserved and considered as relevant quotes.
+* **Reassign Subsections**: Combination of contents belonging to the same section, agreed upon by a majority of teacher models, are merged, and new subsections are reassigned to quotes in the same order of the original document chunk.
+
+**3. Construct Exemplar Answer**: Main sections are reassigned based on combinations of quotes above. The final exemplar answer is constructed by concatenating sections, titles, and quotes.
+
+For detailed implementation to mulit-teacher knowledge distillation, please refer to [consolidate_teachers.py](consolidate_teachers.py)
 
 
 ## Reproduction on Paper Experiments
