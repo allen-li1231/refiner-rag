@@ -2,22 +2,24 @@ import os
 import argparse
 import datetime as dt
 from tqdm.auto import tqdm
-from accelerate import Accelerator, InitProcessGroupKwargs
+
+import torch
 from llmlingua import PromptCompressor
-from accelerate.utils import gather_object
 from transformers.utils import logging
+from accelerate.utils import gather_object
+from accelerate import Accelerator, InitProcessGroupKwargs
 
 logging.get_logger("transformers").setLevel(logging.ERROR)
 
 from metrics import calc_acc
-from utils import load_file, save_file_jsonl, TASK_INST, \
-    EVAL_DATASET_MONITOR_OUTPUT, TRAIN_DATASET_MONITOR_OUTPUT
+from utils import load_file, save_file_jsonl, process_retriever_passage, \
+    TASK_INST, EVAL_DATASET, TRAIN_DATASET_REFINER_OUTPUT
 
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Get evluation for train and evaluation task")
 
-    task_choice = list(EVAL_DATASET_MONITOR_OUTPUT.keys())
+    task_choice = list(EVAL_DATASET.keys())
     parser.add_argument(
         "--task",
         type=str,
@@ -56,7 +58,7 @@ def compress_prompt(llmlingua, model, data, top_n=10, rate=0.5, dynamic_context_
     llmlingua.model = accelerator.unwrap_model(model)
     llmlingua.device = model.device
 
-    context = data["context"]
+    question, context = process_retriever_passage(data, n_docs=top_n)
     lst_restore_context = []
     for i, ctx in enumerate(context.split("\n---\n")):
         ctx = ctx.replace("## ", f"[{i}]")
@@ -66,7 +68,7 @@ def compress_prompt(llmlingua, model, data, top_n=10, rate=0.5, dynamic_context_
 
     processed = llmlingua.compress_prompt(
         lst_restore_context[:top_n],
-        question=data["question"],
+        question=question,
         instruction='' if instruction is None else instruction,
         use_sentence_level_filter=False,
         rate=rate,
@@ -93,15 +95,18 @@ if __name__ == '__main__':
 
     # client = Groq(api_key=GROQ_TOKEN)
 
-    llmlingua = PromptCompressor(use_llmlingua2=args.use_llmlingua2, device_map="cpu")
+    llmlingua = PromptCompressor(
+        use_llmlingua2=args.use_llmlingua2,
+        device_map="cpu",
+        model_config={"torch_dtype": torch.float16})
     model = accelerator.prepare(llmlingua.model)
 
     if args.input:
         qa_data = load_file(args.input)
     elif args.task.startswith('train'):
-        qa_data = load_file(os.path.join('../train_data/', TRAIN_DATASET_MONITOR_OUTPUT[args.task]))
+        qa_data = load_file(os.path.join('./train_data/', TRAIN_DATASET_REFINER_OUTPUT[args.task]))
     else:
-        qa_data = load_file(os.path.join(f'../eval_data/top_{args.top_n}', EVAL_DATASET_MONITOR_OUTPUT[args.task]))
+        qa_data = load_file(os.path.join(f'./eval_data/', EVAL_DATASET[args.task]))
 
     if os.path.exists(f"./.task/evaluate/{args.task}.tmp"):
         lst_prev_predicts = load_file(f'./.task/evaluate/{args.task}.tmp')
@@ -146,7 +151,7 @@ if __name__ == '__main__':
     lst_processed_data.sort(key=lambda data: d_data_idx[data["question"]])
 
     if accelerator.is_main_process:
-        acc = 0
+        acc = 0.
         for data in lst_processed_data:
             is_match = calc_acc(data, data[args.inference_name])
             acc += is_match is True
@@ -158,9 +163,9 @@ if __name__ == '__main__':
         file_suffix = '&'.join([f"{k}={v:.3f}" for k, v in eval_result.items()])
         if args.output_dir is None:
             if args.task.startswith('train'):
-                args.output_dir = "../train_data/"
+                args.output_dir = "./train_data/"
             else:
-                args.output_dir = f"../eval_data/top_{args.top_n}"
+                args.output_dir = f"./eval_data/top_{args.top_n}"
 
         save_path = os.path.join(args.output_dir, f'{args.task}_{args.inference_name}_{file_suffix}.jsonl')
         os.makedirs(args.output_dir, exist_ok=True)
