@@ -6,7 +6,7 @@ from tqdm.auto import tqdm
 from accelerate import Accelerator, InitProcessGroupKwargs
 from accelerate.utils import gather_object
 from peft.peft_model import PeftModel
-from transformers import AutoTokenizer, T5TokenizerFast, T5Tokenizer, AutoModelForSeq2SeqLM, AutoModelForCausalLM
+from transformers import AutoTokenizer, T5TokenizerFast, T5Tokenizer, AutoModelForSeq2SeqLM, AutoModelForCausalLM, LlamaForCausalLM
 from transformers.utils import logging
 
 logging.get_logger("transformers").setLevel(logging.ERROR)
@@ -72,11 +72,11 @@ def parse_args():
 
 def batch_evaluate(model, tokenizer, lst_batch):
     inputs = tokenizer(lst_batch, padding="longest", return_tensors="pt")
-    if not isinstance(model, (PeftModel, AutoModelForCausalLM, AutoModelForSeq2SeqLM)):
+    if not isinstance(model, (PeftModel, AutoModelForCausalLM, AutoModelForSeq2SeqLM, LlamaForCausalLM)):
         model = accelerator.unwrap_model(model)
 
     with torch.no_grad():
-        if isinstance(model, (AutoModelForCausalLM, PeftModel)):
+        if isinstance(model, (AutoModelForCausalLM, AutoModelForSeq2SeqLM, LlamaForCausalLM, PeftModel)):
             preds = model.generate(
                 **inputs.to(accelerator.device),
                 top_p=1,
@@ -97,7 +97,7 @@ def batch_evaluate(model, tokenizer, lst_batch):
                 return_dict_in_generate=True,
                 use_cache=True)
 
-    if isinstance(model, (AutoModelForCausalLM, PeftModel)):
+    if isinstance(model, (LlamaForCausalLM, AutoModelForCausalLM, PeftModel)):
         start_idx = inputs.input_ids.shape[1]
     else:
         start_idx = 0
@@ -114,9 +114,7 @@ if __name__ == '__main__':
 
     kwargs = InitProcessGroupKwargs(timeout=dt.timedelta(seconds=21600))
     accelerator = Accelerator(kwargs_handlers=[kwargs])
-    accelerator.print("Task:", args.task)
-    if os.path.exists(args.adapter_path):
-        args.adapter_path = os.path.abspath(args.adapter_path)
+    accelerator.print("Evaluate_accelerate Task:", args.task)
     accelerator.print("Adapter:", args.adapter_path)
 
     # slurm.init_distributed_mode(args)
@@ -155,6 +153,7 @@ if __name__ == '__main__':
             is_trainable=False,
             torch_dtype=torch.float16
         )
+        model = model.merge_and_unload()
 
     model = accelerator.prepare(model)
     gen_kwargs = dict(tokenizer=tokenizer)
@@ -264,4 +263,5 @@ if __name__ == '__main__':
 
         save_path = os.path.join(args.output_dir, f'{args.task}_{args.inference_name}_{file_suffix}.jsonl')
         os.makedirs(args.output_dir, exist_ok=True)
+        accelerator.print(f"Save to {save_path}")
         save_file_jsonl(lst_processed_data, save_path)
