@@ -1,15 +1,14 @@
 import os
+import time
 import argparse
 
-NUM_GPUS = 4
-BATCH_SIZE_PER_GPU = 1
 
 TASKS = [
-    "popqa",
-    "arc_c",
+    # "popqa",
+    # "arc_c",
     "triviaqa",
     "hotpotqa_dev_distractor",
-    "2wiki_dev",
+    # "2wiki_dev",
 ]
 
 executor_model_names=(
@@ -38,10 +37,10 @@ def parse_args():
         "--output_dir", type=str, default=None, help="name to output directory."
     )
     parser.add_argument(
-        "--eval_monitor", action="store_true", help="whether to evaluate monitor"
+        "--eval_refiner", action="store_true", help="whether to evaluate monitor"
     )
     parser.add_argument(
-        "--eval_executor", action="store_true", help="whether to evaluate executor"
+        "--eval_downstream", action="store_true", help="whether to evaluate executor"
     )
     parser.add_argument(
         "--top_n", type=int, default=10, help="name to directory containing evaluate data"
@@ -65,24 +64,25 @@ def run_task(
         top_n=10,
         rate=0.5,
         dynamic_context_compression_ratio=0.25,
-        eval_monitor=True,
-        eval_executor=True,
+        eval_refiner=True,
+        eval_downstream=True,
         eval_dir=None,
         output_dir=None
         ):
 
         if eval_dir is None:
-            eval_dir = f"../eval_data/top_{top_n}"
+            eval_dir = f"./eval_data/top_{top_n}"
         if output_dir is None:
-            output_dir = f"../eval_data/{inference_name}/top_{top_n}/"
-    
+            output_dir = f"./eval_data/{inference_name}/top_{top_n}/"
+
         os.makedirs(output_dir, exist_ok=True)
-        if eval_monitor:
+        is_evaluated = False
+        if eval_refiner:
             for file_name in os.listdir(eval_dir):
                 if file_name.startswith(task):
                     file_path = os.path.abspath(os.path.join(eval_dir, file_name))
                     print(f"Evaluating {file_path} using {inference_name}")
-
+                    start = time.time()
                     os.system(f"""
 accelerate launch \
     --main_process_port 29501 \
@@ -97,11 +97,13 @@ accelerate launch \
     --input "{file_path}" \
     --output_dir "{output_dir}"
     """)
+                    print(f'Complete Time: {time.time() - start}')
+                    is_evaluated = True
                     break
+            if not is_evaluated:
+                print(f"Warning: monitor {inference_name} not evaluated in {task} task, maybe file not found in", eval_dir)
 
-            print(f"Warning: monitor {inference_name} not evaluated in {task} task, maybe file not found in", eval_dir)
-
-        if eval_executor:
+        if eval_downstream:
             for file_name in os.listdir(output_dir):
                 if file_name.startswith(f"{task}_{inference_name}"):
                     file_path = os.path.abspath(os.path.join(output_dir, file_name))
@@ -132,10 +134,11 @@ if __name__ == '__main__':
                 top_n=args.top_n,
                 rate=args.rate,
                 dynamic_context_compression_ratio=args.dynamic_context_compression_ratio,
-                eval_monitor=args.eval_monitor,
-                eval_executor=args.eval_executor,
+                eval_refiner=args.eval_refiner,
+                eval_downstream=args.eval_downstream,
                 eval_dir=args.eval_dir,
                 output_dir=args.output_dir)
 
 
-    # python ./submit_evaluation_longllmlingua.py --top_n 10 --inference_name longllmlingua --eval_executor --rate 0.5 --dynamic_context_compression_ratio 0.3 --output_dir "./eval_data/longllmlingua/top_10/"
+    # python ./submit_evaluation_longllmlingua.py --top_n 5 --inference_name longllmlingua --eval_refiner --rate 0.5 --dynamic_context_compression_ratio 0.3 >> longllmlingua_top5.log
+    # python ./submit_evaluation_longllmlingua.py --top_n 10 --inference_name longllmlingua --eval_refiner --rate 0.5 --dynamic_context_compression_ratio 0.3 >> longllmlingua_top10.log

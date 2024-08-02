@@ -1,8 +1,9 @@
 import os
+import time
 import argparse
 
 
-NUM_GPUS = 1
+NUM_GPUS = 4
 BATCH_SIZE_PER_GPU = 1
 BASE_MODEL_NAME_OR_PATH = "meta-llama/Llama-2-7b-chat-hf"
 
@@ -48,12 +49,6 @@ def parse_args():
         "--top_n", type=int, default=10, help="name to directory containing evaluate data"
     )
     parser.add_argument(
-        "--eval_baseline", action="store_true", help="whether to evaluate baseline"
-    )
-    parser.add_argument(
-        "--eval_ablation", action="store_true", help="whether to evaluate ablation"
-    )
-    parser.add_argument(
         "--eval_refiner", action="store_true", help="whether to evaluate Refiner"
     )
     parser.add_argument(
@@ -67,19 +62,19 @@ def parse_args():
 
 
 def run_task(
-        task,
-        adapter,
-        inference_name,
-        top_n=10,
-        use_openai=False,
-        eval_dir=None,
-        eval_refiner=False,
-        eval_downstream=False,
-        eval_baseline=False,
-        eval_ablation=False):
+    task,
+    adapter,
+    inference_name,
+    top_n=10,
+    use_openai=False,
+    eval_dir=None,
+    eval_refiner=False,
+    eval_downstream=False,
+):
 
     if eval_refiner:
         print(f"Evaluating {task} using {inference_name} adapter: {adapter}")
+        start = time.time()
         os.system(f"""
 accelerate launch \
     --main_process_port 29501 \
@@ -88,22 +83,22 @@ accelerate launch \
 ./evaluation_accelerate.py \
     --per_gpu_eval_batch_size {BATCH_SIZE_PER_GPU} \
     --base_model_name_or_path {BASE_MODEL_NAME_OR_PATH} \
-    --adapter_path ./checkpoint/{adapter} \
-    --output_dir ./eval_data/{adapter}/top_{top_n} \
+    --adapter_path {adapter} \
+    --output_dir ./eval_data/{adapter.rsplit('/')[-1]}/top_{top_n} \
     --task {task} \
     --top_n {top_n} \
     --inference_name {inference_name}
     """)
+        print(f'Complete Time: {time.time() - start}')
 
-    if eval_dir is None and "refiner" in adapter:
-        eval_dir = f"./eval_data/top_{top_n}"
-    if eval_dir is None:
-        raise LookupError("Please specify eval data directory by --eval_dir")
-
+    if eval_dir is None and "refiner" in adapter.lower():
+        eval_dir = f"./eval_data/{adapter.rsplit('/')[-1]}/top_{top_n}"
+    if eval_downstream and eval_dir is None:
+        raise LookupError("Please provide eval data directory with --eval_dir")
+    
     for file_name in os.listdir(eval_dir):
         if file_name.startswith(f"{task}_{inference_name}"):
             file_path = os.path.abspath(os.path.join(eval_dir, file_name))
-            dir_path = os.path.dirname(file_path)
             print(f"Evaluating {file_path} using {adapter}")
             if use_openai:
                 model_list = zip(openai_model_names, openai_model_names)
@@ -114,48 +109,13 @@ accelerate launch \
                 if eval_downstream:
                     os.system(f"""
 python ./get_executor_data.py \
---model_name_or_path {model} \
---per_gpu_eval_batch_size 12777 \
---task {task} \
---inference_name downstream_{inference} \
---context_key {inference_name} \
---input "{file_path}"
-""")
-                    if eval_baseline:
-                        save_path = os.path.join(dir_path, "baseline")
-                        os.makedirs(save_path, exist_ok=True)
-                        os.system(f"""
-python ./get_executor_data.py \
     --model_name_or_path {model} \
     --per_gpu_eval_batch_size 12777 \
     --task {task} \
-    --inference_name "baseline_{inference}" \
-    --context_key context \
-    {"--use_openai" if use_openai else ''} \
-    --input "{file_path}" \
-    --output_dir "{save_path}" \
+    --inference_name downstream_{inference} \
+    --context_key {inference_name} \
+    --input "{file_path}"
 """)
-
-                    if eval_ablation:
-                        save_path = os.path.join(dir_path, "ablation")
-                        os.makedirs(save_path, exist_ok=True)
-                        for content_type in ["quote"]:
-                            for sec_type in ["star", None]:
-                                for title_type in ["origin", "quote", "md", None]:
-                                    if sec_type == title_type == content_type:
-                                        continue
-
-                                    os.system(f"""
-python ./get_executor_data.py \
-    --model_name_or_path {model} \
-    --per_gpu_eval_batch_size 12777 \
-    --task {task} \
-    --inference_name "ablation_{inference}" \
-    --context_key {f'refiner_{sec_type}_section_{title_type}_title_{content_type}_content'} \
-    --input "{file_path}" \
-    --output_dir "{save_path}"
-""")
-
             return
 
     print(f"Warning: executor {adapter} not evaluated in {task} task, maybe file not found in", eval_dir)

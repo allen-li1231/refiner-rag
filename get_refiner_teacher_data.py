@@ -1,8 +1,6 @@
 import os
 import re
-import time
 import argparse
-import nvidia_smi
 import torch
 # import torch.distributed as dist
 # from torch.nn import DataParallel
@@ -104,12 +102,6 @@ def batch_extract_from_qa(
         eval_metrics=[]
     ):
     os.makedirs(f".task/{args.task}", exist_ok=True)
-    if torch.cuda.is_available():
-        nvidia_smi.nvmlInit()
-        lst_cuda_devices = []
-        for i in range(torch.cuda.device_count()):
-            lst_cuda_devices.append(nvidia_smi.nvmlDeviceGetHandleByIndex(i))
-
     print(f"Total QA pairs: {len(qa_data)}")
     # pub_health = load_file('../eval_data/health_claims_processed.jsonl')
     # triviaqa = load_file('../eval_data/triviaqa_test.jsonl')
@@ -120,6 +112,7 @@ def batch_extract_from_qa(
     # model = AutoModelForCausalLM.from_pretrained("meta-llama/Llama-2-7b-hf", torch_dtype=torch.float16, device_map="mps")
     # model = model.eval()
 
+    postfix = {}
     lst_batch = []
     lst_titled_ans = []
     for data in (pbar:= tqdm(qa_data, mininterval=1., desc="preprocess")):
@@ -155,14 +148,6 @@ def batch_extract_from_qa(
 
             lst_output = [o[0].rstrip(tokenizer.eos_token).rstrip("<|eot_id|>") for o in lst_output]
             lst_titled_ans.extend(lst_output)
-
-            if torch.cuda.is_available():
-                postfix = {
-                    f"GPU{i}": nvidia_smi.nvmlDeviceGetUtilizationRates(device).memory
-                    for i, device in enumerate(lst_cuda_devices)
-                }
-            else:
-                postfix = {}
 
             for metric in eval_metrics:
                 metric.add_batch(

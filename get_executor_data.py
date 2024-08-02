@@ -128,10 +128,10 @@ def batch_extract_from_qa(
     ):
     os.makedirs(f".task/{args.task}", exist_ok=True)
     print(f"Total QA pairs: {len(qa_data)}")
-    # pub_health = load_file('../eval_data/health_claims_processed.jsonl')
-    # triviaqa = load_file('../eval_data/triviaqa_test.jsonl')
-    # popqa = load_file('../eval_data/popqa_longtail.jsonl')
-    # retrieve_data =  load_file("../train_data/extractor_retrieve_wiki.jsonl")
+    # pub_health = load_file('./eval_data/health_claims_processed.jsonl')
+    # triviaqa = load_file('./eval_data/triviaqa_test.jsonl')
+    # popqa = load_file('./eval_data/popqa_longtail.jsonl')
+    # retrieve_data =  load_file("./train_data/extractor_retrieve_wiki.jsonl")
 
     # tokenizer = AutoTokenizer.from_pretrained("selfrag/selfrag_llama2_7b", torch_dtype=torch.float16)
     # model = AutoModelForCausalLM.from_pretrained("meta-llama/Llama-2-7b-hf", torch_dtype=torch.float16, device_map="mps")
@@ -145,7 +145,8 @@ def batch_extract_from_qa(
         lst_question_context.append({"question": data["question"]})
 
         context = data[context_key]
-        if context_key == "context":
+        if context_key == "context" and inference_name != "refiner":
+            # baseline setting
             lst_restore_context = []
             for i, ctx in enumerate(context.split("\n---\n")):
                 ctx = ctx.replace("## ", f"[{i}]")

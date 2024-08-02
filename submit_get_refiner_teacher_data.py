@@ -15,14 +15,14 @@ downstream_model_names = (
     "meta-llama/Llama-2-70b-chat-hf",
     "meta-llama/Meta-Llama-3-70B-Instruct",
     "meta-llama/Meta-Llama-3-8B-Instruct",
-    "mistralai/Mixtral-8x22B-v0.1",
+    "mistralai/Mixtral-8x7B-v0.1-Instruct",
     "Qwen/Qwen2-72B-Instruct"
 )
 downstream_inference_name=(
     "Llama_2_70b",
     "Llama_3_70b",
     "Llama_3_8b",
-    "Mixtral_8x22B",
+    "Mixtral_8x7B",
     "Qwen2_72B"
 )
 

@@ -70,20 +70,22 @@ control_tokens = ["[Fully supported]", "[Partially supported]", "[No support / C
 TRAIN_DATASET = {
     # self-rag
     "train": "wiki_retrieve.jsonl",
-    "train_triviaqa": "triviaqa_train_retrieve.jsonl",
-    "train_hotpotqa": "hotpotqa_train_processed.json",
-    "train_arc_c": "arc_challenge_train_retrieve.jsonl",
-    "train_pubhealth": "pubhealth_train_processed.jsonl",
+    "triviaqa_train": "triviaqa_train_retrieve.jsonl",
+    "hotpotqa_train": "hotpotqa_train_processed.json",
+    "2wiki_train": "2wiki_train_processed.json",
+    "arc_c_train": "arc_c_train_retrieve.jsonl",
+    "pubhealth_train": "pubhealth_train_processed.jsonl",
     "train_truncated": "arc_c_hotpotqa_triviaqa_truncated.jsonl",
 }
 
 TRAIN_DATASET_REFINER_OUTPUT = {
     # self-rag
     "train": "wiki_refiner_teacher_expunge.jsonl",
-    "train_triviaqa": "triviaqa_refiner_teacher_expunge.jsonl",
-    "train_hotpotqa": "hotpotqa_refiner_teacher_expunge.jsonl",
-    "train_arc_c": "arc_c_refiner_teacher_expunge.jsonl",
-    "train_pubhealth": "llama3_truncated/pubhealth.jsonl",
+    "triviaqa_train": "triviaqa_refiner_teacher_expunge.jsonl",
+    "hotpotqa_train": "hotpotqa_refiner_teacher_expunge.jsonl",
+    "2wiki_train": "2wiki_refiner_teacher_expunge.jsonl",
+    "arc_c_train": "arc_c_refiner_teacher_expunge.jsonl",
+    "pubhealth_train": "pubhealth_refiner_teacher_expunge.jsonl",
     "train_truncated": "llama3_truncated/arc_c_hotpotqa_triviaqa_truncated.jsonl",
 }
 
@@ -97,7 +99,8 @@ EVAL_DATASET = {
     "hotpotqa_dev_distractor": "hotpotqa_dev_distractor_processed.json",
     "hotpotqa_test": "hotpotqa_test_processed.json",
     "2wiki_dev": "2wiki_dev_processed.jsonl",
-    "2wiki_test": "2wiki_test_processed.jsonl"
+    "2wiki_test": "2wiki_test_processed.jsonl",
+    "musique_dev": "musique_dev_processed.jsonl"
 }
 
 EVAL_DATASET_REFINER_OUTPUT = {
@@ -110,7 +113,8 @@ EVAL_DATASET_REFINER_OUTPUT = {
     "hotpotqa_dev_distractor": "hotpotqa_dev_distractor_refiner_teacher_expunge.jsonl",
     "hotpotqa_test": "hotpotqa_test_refiner_teacher_expunge.jsonl",
     "2wiki_dev": "2wiki_dev_refiner_teacher_expunge.jsonl",
-    "2wiki_test": "2wiki_test_refiner_teacher_expunge.jsonl"
+    "2wiki_test": "2wiki_test_refiner_teacher_expunge.jsonl",
+    "musique_dev": "musique_dev_refiner_teacher_expunge.jsonl"
 }
 
 DATASET_TYPE = {
@@ -254,15 +258,18 @@ def postprocess_summarization(
         sep='\n',
         section_type="origin",
         title_type="origin",
-        content_type="origin"):
+        content_type="origin"
+):
     lst_contexts = context.split('\n\n')
     if re.match(regex_section, lst_contexts[-1]) is None:
         context = '\n\n'.join(lst_contexts[:-1])
+
     lst_quotes = re.findall(regex_section, context.rstrip("</s>").strip())
     if len(lst_quotes) == 0 or isinstance(lst_quotes[0], str) and len(lst_quotes[0]) == 0:
         # raise LookupError("Cannot extract quotes from:", context)
         print("---\nCannot extract quotes from:", context)
         return context
+
     # try removing duplicated quotes
     lst_quotes.reverse()
     # remove duplicated quotes with larger section number using hash table
@@ -412,9 +419,10 @@ def _concat_passages_by_id(df_passages: pd.DataFrame, n_contexts=2):
 def process_retriever_passage(data,
                               instruction: str = None,
                               max_len: int = None,
-                              n_docs=10,
-                              n_contexts=2,
-                              highlight_keyword=False):
+                              n_docs: int = 10,
+                              n_contexts: int = 2,
+                              highlight_keyword: bool = False,
+                              sort: bool = True):
     if "choices" in data:
         prompt = process_arc_instruction(data, instruction)
     else:
@@ -460,7 +468,11 @@ def process_retriever_passage(data,
     srs_passages = (df.groupby(["title", "max_score"], sort=False)[["title", "passage", "id", "score"]]
                     .apply(lambda x: _concat_passages_by_id(x, n_contexts=n_contexts))
                    ).sort_index(level=1, ascending=False)
-    return prompt, "\n---\n".join(srs_passages.iloc[:n_docs])
+    
+    srs_passages = srs_passages.iloc[:n_docs]
+    if not sort:
+        srs_passages = srs_passages.sample(frac=1.)
+    return prompt, "\n---\n".join(srs_passages)
 
 
 def model_generate(prompt,
