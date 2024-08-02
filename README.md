@@ -3,17 +3,17 @@
 [[paper]](https://arxiv.org/abs/2406.11357) [[model]](https://huggingface.co/al1231/Refiner-7B)
 
 ## TL;DR
-_Refiner_ is an end-to-end extract-and-restructure paradigm that incorporates query-relevant contents, contexts, and sectionalizes interconnected information, ensuring information distinction and alignment with the original context. Refiner achieves a 80.5% tokens reduction and a 1.6-7.0% improvement margin in multi-hop tasks, rivaling with next best solution, [LongLLMLingua](https://arxiv.org/abs/2310.06839).
+_Refiner_ is an end-to-end extract-and-restructure paradigm in post-retrieval process in RAG that incorporates query-relevant contents, contexts, and sectionalizes interconnected information, ensuring information distinction and alignment with the original context. Experiments on the restructured information fed to downstream LLMs show that _Refiner_ achieves a 80.5% tokens reduction and a 1.6-7.0% improvement margin in multi-hop tasks, rivaling with next best solution, [LongLLMLingua](https://arxiv.org/abs/2310.06839).
 
 ## How Refiner Works
 Refiner integrates seamlessly with RAG systems, leveraging a single decoder-only LLM to:
 
-* **Adaptively extract query-relevant contents**: Verbatim extraction of necessary context and sectioning of interconnected contents.
-* **Preserve information distinction**: Highlights contextual relationships, ensuring effective representation of original context.
+* **Adaptively extract query-relevant contents from retrieved document chunks**: Verbatim extraction of necessary context and sectioning of interconnected contents.
+* **Preserve information distinction using section**: Highlights contextual relationships, ensuring effective representation of original context.
 
 ## Benefits
 * **Improved answer accuracy**: Significant gain in downstream LLM performance.
-* **Efficient compression**: 80%+ token reduction.
+* **Efficient information compression**: 80%+ token reduction.
 
 
 ## Get Started
