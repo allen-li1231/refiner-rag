@@ -497,7 +497,7 @@ def model_generate(prompt,
         inputs = tokenizer(prompt, padding="longest", return_tensors="pt")
 
         with torch.no_grad():
-            if temperature <= 0.:
+            if temperature is None or temperature <= 0.:
                 preds = model.generate(
                     **inputs.to(model.device),
                     top_p=top_p,
@@ -514,7 +514,7 @@ def model_generate(prompt,
             else:
                 preds = model.generate(
                     **inputs.to(model.device),
-                    temperature=temperature,
+                    temperature=0. if temperature is None else temperature,
                     top_k=top_k,
                     top_p=top_p,
                     num_beams=beam_width,
