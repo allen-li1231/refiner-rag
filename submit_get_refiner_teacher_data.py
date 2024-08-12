@@ -1,10 +1,12 @@
 import os
 import argparse
 
-
+os.environ["HF_HUB_OFFLINE"] = "1"
+os.environ["VLLM_WORKER_MULTIPROC_METHOD"] = "spawn"
 # NUM_GPUS = 4
 
 TASKS = [
+    "musique_train",
     "arc_c_train",
     "triviaqa_train",
     "hotpotqa_train",
@@ -12,18 +14,18 @@ TASKS = [
 ]
 
 downstream_model_names = (
+    "Qwen/Qwen2-72B-Instruct",
+    "meta-llama/Meta-Llama-3.1-70B",
     "meta-llama/Llama-2-70b-chat-hf",
     "meta-llama/Meta-Llama-3-70B-Instruct",
-    "meta-llama/Meta-Llama-3-8B-Instruct",
-    "mistralai/Mixtral-8x7B-v0.1-Instruct",
-    "Qwen/Qwen2-72B-Instruct"
+    "dnhkng/RYS-XLarge",
 )
-downstream_inference_name=(
+downstream_inference_name = (
+    "Qwen2_72B",
+    "Llama_3.1_70b",
     "Llama_2_70b",
     "Llama_3_70b",
-    "Llama_3_8b",
-    "Mixtral_8x7B",
-    "Qwen2_72B"
+    "RYS_XLarge",
 )
 
 
@@ -31,10 +33,10 @@ def parse_args():
     parser = argparse.ArgumentParser(description="Get evaluation for train and evaluation task")
 
     parser.add_argument(
-        "--train_dir", type=str, default=None, help="name to directory containing evaluate data"
+        "--train_dir", type=str, default=None, help="name to directory containing training data"
     )
     parser.add_argument(
-        "--top_n", type=int, default=10, help="name to directory containing evaluate data"
+        "--top_n", type=int, default=10, help="number of top retrieval"
     )
 
     args = parser.parse_args()
@@ -47,15 +49,14 @@ def run_task(
         train_dir=None):
 
     if train_dir is None:
-        train_dir = f"./train_data"
+        train_dir = f"./train_data/"
 
     matched_file_name = None
     for file_name in os.listdir(train_dir):
         if file_name.startswith(task):
             matched_file_name = file_name
-        elif file_name == f"{task}_teacher_models.jsonl":
-            matched_file_name = file_name
-            print(f"continue recording with {file_name}")
+        if file_name == f"{task}_teacher_models.jsonl":
+            print(f"Continue recording with {file_name}")
             break
 
     if matched_file_name is None:
@@ -69,13 +70,13 @@ def run_task(
         print(f"Evaluating {file_path} using {inference}")
         os.system(f"""
 python ./get_refiner_teacher_data.py \
---model_name_or_path {model} \
---per_gpu_eval_batch_size 12777 \
---task {task} \
---top_n {top_n} \
---inference_name {inference} \
---input "{file_path}" \
---output "{output_path}"
+    --model_name_or_path {model} \
+    --per_gpu_eval_batch_size 12765 \
+    --task {task} \
+    --top_n {top_n} \
+    --inference_name {inference} \
+    --input "{file_path}" \
+    --output "{output_path}"
 """)
 
 
