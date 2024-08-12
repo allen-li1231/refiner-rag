@@ -19,7 +19,7 @@ regex==2024.4.16
 rouge_score==0.1.2
 six==1.16.0
 spacy==3.7.3
-torch==2.3.0
+torch==2.3.1
 tqdm==4.66.2
-transformers==4.40.2
-vllm==0.4.2+cu122
+transformers==4.43.2
+vllm==0.5.3.post1+cu122
