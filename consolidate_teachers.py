@@ -3,7 +3,7 @@ import pylcs
 import pandas as pd
 from tqdm.auto import tqdm
 from utils import regex_section
-from submit_get_refiner_teacher_data import TASKS, downstream_inference_name
+from submit_get_refiner_teacher_data import TRAIN_TASKS, EVAL_TASKS, downstream_inference_name
 
 
 def common_str_idx(s1: str, s2: str):
@@ -148,7 +148,7 @@ def reassign_section(d_contexts: list, min_section_votes: int):
 
         # assignment under one section
         for i_quote_in_same_section, n_occurrence in context["section_ballot"].items():
-            if n_occurrence < min_section_votes:
+            if n_occurrence < min_section_votes or i_quote_in_same_section in set_visited:
                 continue
 
             minor_section += 1
@@ -196,7 +196,7 @@ def generate_exemplar(df, teacher_names):
 
         quote = quote.strip()
         # skip empty quotes
-        if len(quote) < 3 or voters is None:
+        if len(quote) < 15 or voters is None:
             continue
 
         context["quote"] = quote
@@ -224,13 +224,24 @@ def generate_exemplar(df, teacher_names):
 
 if __name__ == '__main__':
     tqdm.pandas(desc="Applying")
+    top_n = 10
 
-    for task in TASKS:
-        df_train_data: pd.DataFrame = pd.read_json(f"train_data/{task}_teacher_models.jsonl", lines=True)
+    for task in EVAL_TASKS:
+        df_eval_data: pd.DataFrame = pd.read_json(f"eval_data/{task}_teacher_models_top{top_n}.jsonl", lines=True)
+
+        df_eval_data["exemplar"] = df_eval_data.progress_apply(generate_exemplar, args=(downstream_inference_name,), axis=1)
+        # remove dirty exemplars
+        df_eval_data = df_eval_data[~df_eval_data["exemplar"].isna()]
+
+        df_eval_data.to_json(f"eval_data/{task}_teacher_models_top{top_n}.jsonl", lines=True, orient="records")
+        # df_eval_data["exemplar"][~df_eval_data["exemplar"].isna() & (df_train_data["exemplar"].str.len() == 0)]
+    
+    for task in TRAIN_TASKS:
+        df_train_data: pd.DataFrame = pd.read_json(f"train_data/{task}_teacher_models_top{top_n}.jsonl", lines=True)
 
         df_train_data["exemplar"] = df_train_data.progress_apply(generate_exemplar, args=(downstream_inference_name,), axis=1)
         # remove dirty exemplars
         df_train_data = df_train_data[~df_train_data["exemplar"].isna()]
 
-        df_train_data.to_json(f"train_data/{task}_teacher_models.jsonl", lines=True, orient="records")
+        df_train_data.to_json(f"train_data/{task}_teacher_models_top{top_n}.jsonl", lines=True, orient="records")
         # df_train_data["exemplar"][~df_train_data["exemplar"].isna() & (df_train_data["exemplar"].str.len() == 0)]
