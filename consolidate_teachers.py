@@ -160,7 +160,7 @@ def reassign_section(d_contexts: list, min_section_votes: int):
         minor_section = 1
 
 
-def generate_exemplar(df, teacher_names):
+def generate_exemplar(df, teacher_names, min_valid_quote_len=15):
     """
     generate Refiner's exemplar output
     """
@@ -196,7 +196,7 @@ def generate_exemplar(df, teacher_names):
 
         quote = quote.strip()
         # skip empty quotes
-        if len(quote) < 15 or voters is None:
+        if len(quote) < min_valid_quote_len or voters is None:
             continue
 
         context["quote"] = quote
