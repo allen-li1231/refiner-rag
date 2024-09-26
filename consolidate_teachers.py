@@ -3,7 +3,15 @@ import pylcs
 import pandas as pd
 from tqdm.auto import tqdm
 from utils import regex_section
-from submit_get_refiner_teacher_data import TASKS, downstream_inference_name
+from submit_get_refiner_teacher_data import TRAIN_TASKS, EVAL_TASKS, downstream_inference_name
+
+
+def empty_ballot(ctxs):
+    for ctx in ctxs:
+        if "ballot" in ctx:
+            del ctx["ballot"]
+
+    return ctxs
 
 
 def common_str_idx(s1: str, s2: str):
@@ -148,7 +156,7 @@ def reassign_section(d_contexts: list, min_section_votes: int):
 
         # assignment under one section
         for i_quote_in_same_section, n_occurrence in context["section_ballot"].items():
-            if n_occurrence < min_section_votes:
+            if n_occurrence < min_section_votes or i_quote_in_same_section in set_visited:
                 continue
 
             minor_section += 1
@@ -160,7 +168,7 @@ def reassign_section(d_contexts: list, min_section_votes: int):
         minor_section = 1
 
 
-def generate_exemplar(df, teacher_names):
+def generate_exemplar(df, teacher_names, min_valid_quote_len=15):
     """
     generate Refiner's exemplar output
     """
@@ -169,7 +177,7 @@ def generate_exemplar(df, teacher_names):
     n_majority = (n_teachers + 1) // 2
     n_empties = 0
 
-    d_contexts = df["ctxs"]
+    lst_context = df["ctxs"]
     for teacher_name in teacher_names:
         lst_quotes = parse_quotes(df[teacher_name])
         if lst_quotes == '':
@@ -187,26 +195,26 @@ def generate_exemplar(df, teacher_names):
                 # skip data as number of valid outputs are insufficient
                 return None
         else:
-            vote_quotes(d_contexts, lst_quotes, teacher_name)
+            vote_quotes(lst_context, lst_quotes, teacher_name)
 
     # get most voted quote text and the corresponding voters
-    for context in d_contexts:
+    for context in lst_context:
         quote, voters = extract_major_quote(
             context["text"], context["ballot"], n_majority, return_voters=True)
 
         quote = quote.strip()
         # skip empty quotes
-        if len(quote) < 3 or voters is None:
+        if len(quote) < min_valid_quote_len or voters is None:
             continue
 
         context["quote"] = quote
         context["voters"] = voters
 
-    reassign_section(d_contexts, n_majority)
+    reassign_section(lst_context, n_majority)
 
     # concatenate quotes, sections along with the titles
     lst_exemplar = []
-    for context in d_contexts:
+    for context in lst_context:
         if "quote" not in context:
             continue
 
@@ -224,13 +232,27 @@ def generate_exemplar(df, teacher_names):
 
 if __name__ == '__main__':
     tqdm.pandas(desc="Applying")
+    top_n = 10
 
-    for task in TASKS:
-        df_train_data: pd.DataFrame = pd.read_json(f"train_data/{task}_teacher_models.jsonl", lines=True)
+    for task in EVAL_TASKS:
+        df_eval_data: pd.DataFrame = pd.read_json(f"eval_data/teacher_models/{task}_exemplar_top{top_n}.jsonl", lines=True)
+        # ensure everything starts from zero
+        df_eval_data["ctxs"].apply(empty_ballot)
+        df = df_eval_data.iloc[0]
+        teacher_names = downstream_inference_name
+        df_eval_data["exemplar"] = df_eval_data.progress_apply(generate_exemplar, args=(downstream_inference_name,), axis=1)
+        # remove dirty exemplars
+        df_eval_data = df_eval_data[~df_eval_data["exemplar"].isna()]
+        df_eval_data["ctxs"].apply(empty_ballot)
+        df_eval_data.to_json(f"eval_data/{task}_exemplar_top{top_n}.jsonl", lines=True, orient="records")
+        # df_eval_data["exemplar"][~df_eval_data["exemplar"].isna() & (df_train_data["exemplar"].str.len() == 0)]
 
+    for task in TRAIN_TASKS:
+        df_train_data: pd.DataFrame = pd.read_json(f"train_data/{task}_exemplar_top{top_n}.jsonl", lines=True)
+        df_train_data["ctxs"].apply(empty_ballot)
         df_train_data["exemplar"] = df_train_data.progress_apply(generate_exemplar, args=(downstream_inference_name,), axis=1)
         # remove dirty exemplars
         df_train_data = df_train_data[~df_train_data["exemplar"].isna()]
-
-        df_train_data.to_json(f"train_data/{task}_teacher_models.jsonl", lines=True, orient="records")
+        df_train_data["ctxs"].apply(empty_ballot)
+        df_train_data.to_json(f"train_data/{task}_exemplar_top{top_n}.jsonl", lines=True, orient="records")
         # df_train_data["exemplar"][~df_train_data["exemplar"].isna() & (df_train_data["exemplar"].str.len() == 0)]
