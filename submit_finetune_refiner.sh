@@ -37,7 +37,7 @@ export CUDA_LAUNCH_BLOCKING=1
 
 # Model parameters
 TASK=monitor
-MODEL_SIZE=7b
+MODEL_NAME=meta-llama/Llama-2-7b-chat-hf
 NUM_GPUS=8
 BATCH_SIZE_PER_GPU=1
 TOTAL_BATCH_SIZE=128
@@ -52,7 +52,7 @@ accelerate launch \
     --deepspeed_config_file stage3_no_offloading_accelerate.conf \
 ./finetune.py \
     --task $TASK \
-    --model_name_or_path "meta-llama/Llama-2-$MODEL_SIZE-chat-hf" \
+    --model_name_or_path "$MODEL_NAME" \
     --with_tracking \
     --report_to tensorboard \
     --logging_steps $GRADIENT_ACC_STEPS \
