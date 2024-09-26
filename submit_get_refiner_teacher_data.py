@@ -9,17 +9,17 @@ TRAIN_TASKS = [
     "musique_train",
     "arc_c_train",
     "triviaqa_train",
-    # "hotpotqa_train",
+    "hotpotqa_train",
     "pubhealth_train",
 ]
 
 EVAL_TASKS = [
-    # "musique_dev",
-    # "popqa",
-    # "triviaqa",
-    # "hotpotqa_dev_distractor",
+    "musique_dev",
+    "popqa",
+    "triviaqa",
+    "hotpotqa_dev_distractor",
     "2wiki_dev",
-    "arc_c",
+    # "arc_c",
 ]
 
 downstream_model_names = (
