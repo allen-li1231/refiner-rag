@@ -37,7 +37,7 @@ from transformers import (
 from peft import (LoraConfig, PrefixTuningConfig, TaskType,
                   PeftModel, PeftModelForCausalLM, get_peft_model
 )
-from utils import PROMPT_DICT, TASK_INST
+from utils import PROMPT_DICT, TASK_INST, process_retriever_passage
 
 logger = get_logger(__name__)
 
@@ -62,6 +62,12 @@ def parse_args():
         help=f"Task of text extraction from evaluate dataset. Choices: 'monitor' or 'executor'.",
         required=False,
         default=None
+    )
+    parser.add_argument(
+        "--n_docs",
+        type=int,
+        default=10,
+        help="The number of inputted retrieved document chunks.",
     )
     parser.add_argument(
         "--dataset_config_name",
@@ -274,13 +280,23 @@ def _tokenize_fn(text: str, tokenizer: transformers.PreTrainedTokenizer, max_seq
     )
 
 
-def encode_with_prompt_completion_format(example, tokenizer, max_seq_length, target_key, context_markups=None, prompt_template=PROMPT_MONITOR_LORA_INPUT):
+def encode_with_prompt_completion_format(
+        example,
+        tokenizer,
+        max_seq_length,
+        n_docs,
+        target_key,
+        context_markups=None,
+        prompt_template=PROMPT_MONITOR_LORA_INPUT
+    ):
     '''
     Here we assume each example has 'prompt' and 'completion' fields.
     We concatenate prompt and completion and tokenize them together because otherwise prompt will be padded/trancated
     and it doesn't make sense to follow directly with the completion.
     '''
     # if prompt doesn't end with space and completion doesn't start with space, add space
+    question, context = process_retriever_passage(example, n_docs=n_docs)
+    source_text = prompt_template.format(question=question, context=context)
 
     source_text = prompt_template.format_map(example)
     target_text = example[target_key].rstrip(tokenizer.eos_token) + tokenizer.eos_token
@@ -545,7 +561,8 @@ def main():
         encode_with_prompt_completion_format,
         tokenizer=tokenizer,
         max_seq_length=args.max_seq_length,
-        target_key="executor_teacher" if args.task == "executor" else "output",
+        top_n=args.top_n,
+        target_key="exemplar" if args.task == "executor" else "output",
         context_markups=context_markups if args.use_special_tokens is True else None,
         prompt_template=PROMPT_MONITOR_PREFIX_INPUT if args.use_prefix_tuning else PROMPT_MONITOR_LORA_INPUT
     )
