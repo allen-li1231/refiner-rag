@@ -22,14 +22,14 @@ EVAL_TASKS = [
     # "arc_c",
 ]
 
-downstream_model_names = (
+teacher_model_names = (
     "Qwen/Qwen2-72B-Instruct",
-    "meta-llama/Meta-Llama-3.1-70B",
+    "meta-llama/Meta-Llama-3.1-70B-Instruct",
     "meta-llama/Llama-2-70b-chat-hf",
     "meta-llama/Meta-Llama-3-70B-Instruct",
     "dnhkng/RYS-XLarge",
 )
-downstream_inference_name = (
+teacher_model_inference_names = (
     "Qwen2_72B",
     "Llama_3.1_70b",
     "Llama_2_70b",
@@ -64,7 +64,7 @@ def run_task(
     for file_name in os.listdir(task_dir):
         if file_name.startswith(task):
             matched_file_name = file_name
-        if f"{task}_teacher_models_top{top_n}.jsonl" in file_name:
+        if f"{task}_exemplar_top{top_n}.jsonl" in file_name:
             print(f"Continue recording with {file_name}")
             break
 
@@ -72,8 +72,8 @@ def run_task(
         raise IndexError(f"Warning: {task} task not evaluated, maybe file not found in", task_dir)
 
     file_path = os.path.abspath(os.path.join(task_dir, matched_file_name))
-    output_path = os.path.abspath(os.path.join(task_dir, f"{task}_teacher_models_top{top_n}.jsonl"))
-    model_list = zip(downstream_model_names, downstream_inference_name)
+    output_path = os.path.abspath(os.path.join(task_dir, f"{task}_exemplar_top{top_n}.jsonl"))
+    model_list = zip(teacher_model_names, teacher_model_inference_names)
 
     for model, inference in model_list:
         print(f"Run refiner teacher models using {file_path} on {inference}")
