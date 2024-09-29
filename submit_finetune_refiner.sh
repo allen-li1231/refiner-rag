@@ -30,15 +30,15 @@ echo "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX"
 
 # CUDA and Python environment
 module load cuda/12.2
-# source ~/miniconda3/bin/activate dl
-eval "$(micromamba shell hook --shell bash)"
-micromamba activate dl
+source ~/miniconda3/bin/activate dl
+# eval "$(micromamba shell hook --shell bash)"
+# micromamba activate dl
 export CUDA_LAUNCH_BLOCKING=1
 
 # Model parameters
-TASK=monitor
+TASK=executor
 MODEL_NAME=meta-llama/Llama-2-7b-chat-hf
-NUM_GPUS=8
+NUM_GPUS=4
 BATCH_SIZE_PER_GPU=1
 TOTAL_BATCH_SIZE=128
 GRADIENT_ACC_STEPS=$(($TOTAL_BATCH_SIZE/$NUM_GPUS/$BATCH_SIZE_PER_GPU))
@@ -67,8 +67,8 @@ accelerate launch \
     --seed 633 \
     --num_train_epochs 3 \
     --learning_rate 4e-5 \
-    --train_file ../train_data/llama3_truncated/arc_c_hotpotqa_triviaqa_truncated.jsonl \
-    --output_dir ./checkpoint/monitor_from_llama3_truncated_no_special_token/ \
-    --use_flash_attn
+    --train_file ./train_data/hotpotqa_triviaqa_exemplar.jsonl \
+    --output_dir ./checkpoint/refiner_exemplar/ \
+
 
 echo "Q.E.D"
