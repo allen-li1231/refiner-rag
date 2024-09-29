@@ -41,10 +41,10 @@ from utils import PROMPT_DICT, TASK_INST, process_retriever_passage
 
 logger = get_logger(__name__)
 
-PROMPT_MONITOR_LORA_INPUT = PROMPT_DICT["prompt_monitor_lora"]
-PROMPT_MONITOR_PREFIX_INPUT = PROMPT_DICT["prompt_monitor_prefix"]
-PROMPT_EXECUTOR_LORA_INPUT = PROMPT_DICT["prompt_executor_lora"]
-PROMPT_EXECUTOR_PREFIX_INPUT = PROMPT_DICT["prompt_executor_prefix"]
+PROMPT_REFINER_LORA_INPUT = PROMPT_DICT["prompt_refiner_lora"]
+PROMPT_REFINER_PREFIX_INPUT = PROMPT_DICT["prompt_refiner_prefix"]
+PROMPT_EXECUTOR_LORA_INPUT = PROMPT_DICT["prompt_downstream_lora"]
+PROMPT_EXECUTOR_PREFIX_INPUT = PROMPT_DICT["prompt_downstream_prefix"]
 
 
 def parse_args():
@@ -67,7 +67,7 @@ def parse_args():
         "--n_docs",
         type=int,
         default=10,
-        help="The number of inputted retrieved document chunks.",
+        help="The configuration name of the dataset to use (via the datasets library).",
     )
     parser.add_argument(
         "--dataset_config_name",
@@ -287,7 +287,7 @@ def encode_with_prompt_completion_format(
         n_docs,
         target_key,
         context_markups=None,
-        prompt_template=PROMPT_MONITOR_LORA_INPUT
+        prompt_template=PROMPT_REFINER_LORA_INPUT
     ):
     '''
     Here we assume each example has 'prompt' and 'completion' fields.
@@ -298,7 +298,6 @@ def encode_with_prompt_completion_format(
     question, context = process_retriever_passage(example, n_docs=n_docs)
     source_text = prompt_template.format(question=question, context=context)
 
-    source_text = prompt_template.format_map(example)
     target_text = example[target_key].rstrip(tokenizer.eos_token) + tokenizer.eos_token
     examples_tokenized = _tokenize_fn(source_text + target_text, tokenizer, max_seq_length)
     sources_tokenized = _tokenize_fn(source_text, tokenizer, max_seq_length)
@@ -561,10 +560,10 @@ def main():
         encode_with_prompt_completion_format,
         tokenizer=tokenizer,
         max_seq_length=args.max_seq_length,
-        top_n=args.top_n,
+        n_docs=args.n_docs,
         target_key="exemplar" if args.task == "executor" else "output",
         context_markups=context_markups if args.use_special_tokens is True else None,
-        prompt_template=PROMPT_MONITOR_PREFIX_INPUT if args.use_prefix_tuning else PROMPT_MONITOR_LORA_INPUT
+        prompt_template=PROMPT_REFINER_PREFIX_INPUT if args.use_prefix_tuning else PROMPT_REFINER_LORA_INPUT
     )
     # elif "messages" in raw_datasets["train"].column_names:
     #     encode_function = partial(
