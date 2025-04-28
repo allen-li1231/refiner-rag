@@ -160,11 +160,23 @@ python ./submit_evaluation_longllmlingua.py --top_n 10 --inference_name longllml
 
 ## Citation
 ```cite
-@misc{li2024textitrefiner,
-      title={$\textit{Refiner}$: Restructure Retrieval Content Efficiently to Advance Question-Answering Capabilities}, 
-      author={Zhonghao Li and Xuming Hu and Aiwei Liu and Kening Zheng and Sirui Huang and Hui Xiong},
-      year={2024},
-      eprint={2406.11357},
-      archivePrefix={arXiv},
-      primaryClass={id='cs.CL' full_name='Computation and Language' is_active=True alt_name='cmp-lg' in_archive='cs' is_general=False description='Covers natural language processing. Roughly includes material in ACM Subject Class I.2.7. Note that work on artificial languages (programming languages, logics, formal systems) that does not explicitly address natural-language issues broadly construed (natural-language processing, computational linguistics, speech, text retrieval, etc.) is not appropriate for this area.'}
+@inproceedings{li-etal-2024-refiner,
+    title = "$\textit{Refiner}$: Restructure Retrieved Content Efficiently to Advance Question-Answering Capabilities",
+    author = "Li, Zhonghao  and
+      Hu, Xuming  and
+      Liu, Aiwei  and
+      Zheng, Kening  and
+      Huang, Sirui  and
+      Xiong, Hui",
+    editor = "Al-Onaizan, Yaser  and
+      Bansal, Mohit  and
+      Chen, Yun-Nung",
+    booktitle = "Findings of the Association for Computational Linguistics: EMNLP 2024",
+    month = nov,
+    year = "2024",
+    address = "Miami, Florida, USA",
+    publisher = "Association for Computational Linguistics",
+    url = "https://aclanthology.org/2024.findings-emnlp.500/",
+    doi = "10.18653/v1/2024.findings-emnlp.500",
+    pages = "8548--8572"
 }

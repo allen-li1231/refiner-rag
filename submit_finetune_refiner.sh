@@ -30,19 +30,19 @@ echo "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX"
 
 # CUDA and Python environment
 module load cuda/12.2
-# source ~/miniconda3/bin/activate dl
-eval "$(micromamba shell hook --shell bash)"
-micromamba activate dl
+source ~/miniconda3/bin/activate dl
+# eval "$(micromamba shell hook --shell bash)"
+# micromamba activate dl
 export CUDA_LAUNCH_BLOCKING=1
 
 # Model parameters
-TASK=monitor
-MODEL_SIZE=7b
-NUM_GPUS=8
+TASK=executor
+MODEL_NAME=meta-llama/Meta-Llama-3-8B
+NUM_GPUS=4
 BATCH_SIZE_PER_GPU=1
 TOTAL_BATCH_SIZE=128
 GRADIENT_ACC_STEPS=$(($TOTAL_BATCH_SIZE/$NUM_GPUS/$BATCH_SIZE_PER_GPU))
-echo "Training Llama-2 $MODEL_SIZE model using $NUM_GPUS GPUs, $BATCH_SIZE_PER_GPU batch size per GPU, $GRADIENT_ACC_STEPS gradient accumulation steps"
+echo "Finetuning $MODEL_NAME using $NUM_GPUS GPUs, $BATCH_SIZE_PER_GPU batch size per GPU, $GRADIENT_ACC_STEPS gradient accumulation steps"
 
 accelerate launch \
     --num_machines 1 \
@@ -52,7 +52,7 @@ accelerate launch \
     --deepspeed_config_file stage3_no_offloading_accelerate.conf \
 ./finetune.py \
     --task $TASK \
-    --model_name_or_path "meta-llama/Llama-2-$MODEL_SIZE-chat-hf" \
+    --model_name_or_path "$MODEL_NAME" \
     --with_tracking \
     --report_to tensorboard \
     --logging_steps $GRADIENT_ACC_STEPS \
@@ -67,8 +67,8 @@ accelerate launch \
     --seed 633 \
     --num_train_epochs 3 \
     --learning_rate 4e-5 \
-    --train_file ../train_data/llama3_truncated/arc_c_hotpotqa_triviaqa_truncated.jsonl \
-    --output_dir ./checkpoint/monitor_from_llama3_truncated_no_special_token/ \
-    --use_flash_attn
+    --train_file ./train_data/hotpotqa_triviaqa_exemplar.jsonl \
+    --output_dir ./checkpoint/refiner_exemplar_8b/ \
+
 
 echo "Q.E.D"
